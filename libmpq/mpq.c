@@ -193,6 +193,15 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 		goto error;
 	}
 
+#ifdef LIBMPQ_FILE_BUFFER_SIZE
+	if (setvbuf((*mpq_archive)->fp, NULL, _IOFBF, LIBMPQ_FILE_BUFFER_SIZE) != 0) {
+
+		/* buffer size could not be set */
+		result = LIBMPQ_ERROR_OPEN;
+		goto error;
+	}
+#endif
+
 	/* assign some default values. */
 	(*mpq_archive)->mpq_header.mpq_magic = 0;
 	(*mpq_archive)->files                = 0;
@@ -419,6 +428,15 @@ int32_t libmpq__archive_dup(mpq_archive_s *orig_archive, const char *mpq_filenam
 		result = errno == ENOENT ? LIBMPQ_ERROR_EXIST : LIBMPQ_ERROR_OPEN;
 		goto error;
 	}
+
+#ifdef LIBMPQ_FILE_BUFFER_SIZE
+	if (setvbuf((*mpq_archive)->fp, NULL, _IOFBF, LIBMPQ_FILE_BUFFER_SIZE) != 0) {
+
+		/* buffer size could not be set */
+		result = LIBMPQ_ERROR_OPEN;
+		goto error;
+	}
+#endif
 
 	(*mpq_archive)->block_size = orig_archive->block_size;
 	(*mpq_archive)->archive_offset = orig_archive->archive_offset;
