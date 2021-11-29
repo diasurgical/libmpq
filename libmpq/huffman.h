@@ -27,13 +27,15 @@
 #ifndef _HUFFMAN_H
 #define _HUFFMAN_H
 
+#include <stdint.h>
+
 /* define huffman compression and decompression values. */
 #define LIBMPQ_HUFF_DECOMPRESS			0		/* we want to decompress using huffman trees. */
 
 /* define pointer conversions. */
-#define PTR_NOT(ptr)				(struct huffman_tree_item_s *)(~(unsigned long)(ptr))
+#define PTR_NOT(ptr)				(struct huffman_tree_item_s *)(~(uintptr_t)(ptr))
 #define PTR_PTR(ptr)				((struct huffman_tree_item_s *)(ptr))
-#define PTR_INT(ptr)				(long)(ptr)
+#define PTR_INT(ptr)				(intptr_t)(ptr)
 
 /* define item handling. */
 #define INSERT_ITEM				1		/* insert item into huffman tree. */
@@ -99,7 +101,7 @@ void libmpq__huffman_remove_item(
 /* get previous item from huffman tree. */
 struct huffman_tree_item_s *libmpq__huffman_previous_item(
 	struct		huffman_tree_item_s *hi,
-	long		value
+	intptr_t	value
 );
 
 /* get one bit from stream. */
