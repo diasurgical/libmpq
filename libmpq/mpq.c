@@ -990,10 +990,8 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 				goto error;
 			}
 		} else {
-			/* if file is not encrypted we only need to convert first two uint32_t from data - those are size and offset. all data after those
-			 * is just a array of bytes, so no endian conversion is needed */
-			mpq_archive->mpq_file[file_number]->packed_offset[0] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
-			mpq_archive->mpq_file[file_number]->packed_offset[1] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[1]);
+			/* convert offsets to platform endian */
+			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
 		}
 	} else {
 
@@ -1172,10 +1170,8 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 				goto error;
 			}
 		} else {
-			/* if file is not encrypted we only need to convert first two uint32_t from data - those are size and offset. all data after those
-			 * is just a array of bytes, so no endian conversion is needed */
-			mpq_archive->mpq_file[file_number]->packed_offset[0] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
-			mpq_archive->mpq_file[file_number]->packed_offset[1] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[1]);
+			/* convert offsets to platform endian */
+			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
 		}
 	} else {
 
