@@ -323,10 +323,18 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 		result = LIBMPQ_ERROR_READ;
 		goto error;
 	}
-	bswap_mpq_hash((*mpq_archive)->mpq_hash, (*mpq_archive)->mpq_header.hash_table_count);
+
+	/* convert loaded data to platform endian */
+	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s) / sizeof(uint32_t));
 
 	/* decrypt the hashtable. */
 	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s), libmpq__hash_string("(hash table)", 0x300));
+
+	/* convert decrypted data to original endian */
+	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s) / sizeof(uint32_t));
+
+	/* cast array of uint32_t to mpq_hash_s and convert to platform endian */
+	bswap_mpq_hash((*mpq_archive)->mpq_hash, (*mpq_archive)->mpq_header.hash_table_count);
 
 	/* seek in file. */
 	if (fseeko((*mpq_archive)->fp, (*mpq_archive)->mpq_header.block_table_offset + (((long long)((*mpq_archive)->mpq_header_ex.block_table_offset_high)) << 32) + (*mpq_archive)->archive_offset, SEEK_SET) < 0) {
@@ -343,10 +351,16 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 		result = LIBMPQ_ERROR_READ;
 		goto error;
 	}
-	bswap_mpq_block((*mpq_archive)->mpq_block, (*mpq_archive)->mpq_header.block_table_count);
+
+	/* convert loaded data to platform endian */
+	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_block), (*mpq_archive)->mpq_header.block_table_count * sizeof(mpq_block_s) / sizeof(uint32_t));
 
 	/* decrypt block table. */
 	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_block), (*mpq_archive)->mpq_header.block_table_count * sizeof(mpq_block_s), libmpq__hash_string("(block table)", 0x300));
+
+	/*
+	 * mpq_block_s is a block of uint32_t values, so we can skip convertion to orignal endian, casting and conversion to platform endian.
+	 */
 
 	/* check if extended block table is present, regardless of version 2 it is only present in archives > 4GB. */
 	if ((*mpq_archive)->mpq_header_ex.extended_offset > 0) {
@@ -844,7 +858,7 @@ int32_t libmpq__file_read_with_filename_and_temporary_buffer(mpq_archive_s *mpq_
 	}
 
 	result = libmpq__file_read_with_temporary_buffer(mpq_archive, file_number, out_buf, out_size, tmp_buf, tmp_size, transferred);
-	
+
 	libmpq__block_close_offset(mpq_archive, file_number);
 
 	return result;
@@ -910,6 +924,7 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 	/* check if we need to load the packed block offset table, we will maintain this table for unpacked files too. */
 	if ((mpq_block->flags & LIBMPQ_FLAG_COMPRESSED) != 0 &&
 	    (mpq_block->flags & LIBMPQ_FLAG_SINGLE) == 0) {
+		uint32_t read_size;
 
 		/* seek to block position. */
 		if (fseeko(mpq_archive->fp, mpq_block->offset + (((long long)mpq_archive->mpq_block_ex[mpq_archive->mpq_map[file_number].block_table_indices].offset_high) << 32) + mpq_archive->archive_offset, SEEK_SET) < 0) {
@@ -926,14 +941,12 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 			result = LIBMPQ_ERROR_READ;
 			goto error;
 		}
-		bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
 
 		/* check if the archive is protected some way, sometimes the file appears not to be encrypted, but it is.
 		 * a special case are files with an additional sector but LIBMPQ_FLAG_CRC not set. we don't want to handle
-		 * them as encrypted. */
-		if (mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size &&
-		    mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size + 4) {
-
+		 * them as encrypted. before using size loaded from file we need to perform conversion to platform endian. */
+		read_size = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
+		if (read_size != packed_size && read_size != packed_size + 4) {
 			/* file is encrypted. */
 			mpq_block->flags |= LIBMPQ_FLAG_ENCRYPTED;
 		}
@@ -954,6 +967,9 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 			}
 			mpq_archive->mpq_file[file_number]->seed = seed;
 
+			/* convert to platform endian before decryption */
+			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
+
 			/* decrypt block in input buffer. */
 			if (libmpq__decrypt_block(mpq_archive->mpq_file[file_number]->packed_offset, packed_size, seed - 1) < 0 ) {
 
@@ -962,6 +978,10 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 				goto error;
 			}
 
+			/*
+			 * we loaded an array of bytes, so no further endian conversion is needed.
+			 */
+
 			/* check if the block positions are correctly decrypted. */
 			if (mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size) {
 
@@ -969,6 +989,11 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 				result = LIBMPQ_ERROR_DECRYPT;
 				goto error;
 			}
+		} else {
+			/* if file is not encrypted we only need to convert first two uint32_t from data - those are size and offset. all data after those
+			 * is just a array of bytes, so no endian conversion is needed */
+			mpq_archive->mpq_file[file_number]->packed_offset[0] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
+			mpq_archive->mpq_file[file_number]->packed_offset[1] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[1]);
 		}
 	} else {
 
@@ -1083,6 +1108,7 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 	/* check if we need to load the packed block offset table, we will maintain this table for unpacked files too. */
 	if ((mpq_archive->mpq_block[mpq_archive->mpq_map[file_number].block_table_indices].flags & LIBMPQ_FLAG_COMPRESSED) != 0 &&
 	    (mpq_archive->mpq_block[mpq_archive->mpq_map[file_number].block_table_indices].flags & LIBMPQ_FLAG_SINGLE) == 0) {
+		uint32_t read_size;
 
 		/* seek to block position. */
 		if (fseeko(mpq_archive->fp, mpq_archive->mpq_block[mpq_archive->mpq_map[file_number].block_table_indices].offset + (((long long)mpq_archive->mpq_block_ex[mpq_archive->mpq_map[file_number].block_table_indices].offset_high) << 32) + mpq_archive->archive_offset, SEEK_SET) < 0) {
@@ -1099,13 +1125,12 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 			result = LIBMPQ_ERROR_READ;
 			goto error;
 		}
-		bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
 
 		/* check if the archive is protected some way, sometimes the file appears not to be encrypted, but it is.
 		 * a special case are files with an additional sector but LIBMPQ_FLAG_CRC not set. we don't want to handle
-		 * them as encrypted. */
-		if (mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size &&
-		    mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size + 4) {
+		 * them as encrypted. before using size loaded from file we need to perform conversion to platform endian. */
+		read_size = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
+		if (read_size != packed_size && read_size != packed_size + 4) {
 
 			/* file is encrypted. */
 			mpq_archive->mpq_block[mpq_archive->mpq_map[file_number].block_table_indices].flags |= LIBMPQ_FLAG_ENCRYPTED;
@@ -1124,6 +1149,9 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 			}
 			mpq_archive->mpq_file[file_number]->seed = seed;
 
+			/* convert data to platform endian before decryption */
+			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
+
 			/* decrypt block in input buffer. */
 			if (libmpq__decrypt_block(mpq_archive->mpq_file[file_number]->packed_offset, packed_size, mpq_archive->mpq_file[file_number]->seed - 1) < 0 ) {
 
@@ -1132,6 +1160,10 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 				goto error;
 			}
 
+			/*
+			 * we loaded an array of bytes, so no further endian conversion is needed.
+			 */
+
 			/* check if the block positions are correctly decrypted. */
 			if (mpq_archive->mpq_file[file_number]->packed_offset[0] != packed_size) {
 
@@ -1139,6 +1171,11 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 				result = LIBMPQ_ERROR_DECRYPT;
 				goto error;
 			}
+		} else {
+			/* if file is not encrypted we only need to convert first two uint32_t from data - those are size and offset. all data after those
+			 * is just a array of bytes, so no endian conversion is needed */
+			mpq_archive->mpq_file[file_number]->packed_offset[0] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[0]);
+			mpq_archive->mpq_file[file_number]->packed_offset[1] = libmpq__bswap_LE32(mpq_archive->mpq_file[file_number]->packed_offset[1]);
 		}
 	} else {
 
@@ -1366,6 +1403,9 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 		/* get decryption key. */
 		libmpq__block_seed(mpq_archive, file_number, block_number, &seed);
 
+		/* convert data to platform endian before decryption */
+		bswap_uint32s((uint32_t *)in_buf, in_size / sizeof(uint32_t));
+
 		/* decrypt block. */
 		if (libmpq__decrypt_block((uint32_t *)in_buf, in_size, seed) < 0) {
 
@@ -1375,6 +1415,9 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 			/* something on decrypting block failed. */
 			return LIBMPQ_ERROR_DECRYPT;
 		}
+
+		/* revert to format endian after decryption */
+		bswap_uint32s((uint32_t *)in_buf, in_size / sizeof(uint32_t));
 	}
 
 	/* check if file is compressed. */
@@ -1513,12 +1556,18 @@ int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uin
 		/* get decryption key. */
 		libmpq__block_seed(mpq_archive, file_number, block_number, &seed);
 
+		/* convert data to platform endian before decryption */
+		bswap_uint32s((uint32_t *)tmp_buf, in_size / sizeof(uint32_t));
+
 		/* decrypt block. */
 		if (libmpq__decrypt_block((uint32_t *)tmp_buf, in_size, seed) < 0) {
 
 			/* something on decrypting block failed. */
 			return LIBMPQ_ERROR_DECRYPT;
 		}
+
+		/* revert to format endian after decryption */
+		bswap_uint32s((uint32_t *)tmp_buf, in_size / sizeof(uint32_t));
 	}
 
 	/* get compression status. */
