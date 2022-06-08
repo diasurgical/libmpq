@@ -702,7 +702,8 @@ int32_t libmpq__file_number_from_hash(mpq_archive_s *mpq_archive, uint32_t hash1
 	for (uint32_t i = hash1; mpq_archive->mpq_hash[i].block_table_index != LIBMPQ_HASH_FREE; i = (i + 1) & (ht_count - 1)) {
 
 		/* if the other two hashes match, we found our file number. */
-		if (mpq_archive->mpq_hash[i].hash_a == hash2 &&
+		if (mpq_archive->mpq_hash[i].block_table_index != LIBMPQ_HASH_DELETED &&
+			mpq_archive->mpq_hash[i].hash_a == hash2 &&
 		    mpq_archive->mpq_hash[i].hash_b == hash3) {
 
 			/* return the file number. */

@@ -49,6 +49,7 @@
 
 /* define generic hash values. */
 #define LIBMPQ_HASH_FREE			0xFFFFFFFF	/* hash table entry is empty and has always been empty. */
+#define LIBMPQ_HASH_DELETED			0xFFFFFFFE	/* hash table entry used to point to a block but is now deleted (can be reclaimed). */
 
 /* define special files. */
 #define LIBMPQ_LISTFILE_NAME			"(listfile)"	/* internal listfile. */
