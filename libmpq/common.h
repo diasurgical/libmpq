@@ -67,6 +67,7 @@ int32_t libmpq__encryption_key_from_filename_v2(
 int32_t libmpq__decompress_block(
 	uint8_t		*in_buf,
 	uint32_t	in_size,
+	uint8_t		*work_buf,
 	uint8_t		*out_buf,
 	uint32_t	out_size,
 	uint32_t	compression_type

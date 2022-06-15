@@ -47,31 +47,23 @@ static decompress_table_s dcmp_table[] = {
 };
 
 /* this function decompress a stream using huffman algorithm. */
-int32_t libmpq__decompress_huffman(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_huffman(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* TODO: make typdefs of this structs? */
 	/* some common variables. */
 	int32_t tb     = 0;
-	struct huffman_tree_s *ht;
-	struct huffman_input_stream_s *is;
-
-	/* allocate memory for the huffman tree. */
-	if ((ht = malloc(sizeof(struct huffman_tree_s))) == NULL ||
-	    (is = malloc(sizeof(struct huffman_input_stream_s))) == NULL) {
-
-		/* memory allocation problem. */
-		return LIBMPQ_ERROR_MALLOC;
-	}
+	struct huffman_tree_s *ht = (struct huffman_tree_s *)work_buf;
+	struct huffman_input_stream_s is;
 
 	/* cleanup structures. */
 	memset(ht, 0, sizeof(struct huffman_tree_s));
-	memset(is, 0, sizeof(struct huffman_input_stream_s));
+	memset(&is, 0, sizeof(struct huffman_input_stream_s));
 
 	/* initialize input stream. */
-	is->bit_buf  = *(uint32_t *)in_buf;
+	is.bit_buf  = *(uint32_t *)in_buf;
 	in_buf      += sizeof(int32_t);
-	is->in_buf   = (uint8_t *)in_buf;
-	is->bits     = 32;
+	is.in_buf   = (uint8_t *)in_buf;
+	is.bits     = 32;
 
 // TODO: add all the mallocs to init function and add function libmpq__huffman_tree_free() */
 //	if ((result = libmpq__huffman_tree_init(ht, LIBMPQ_HUFF_DECOMPRESS)) < 0) {
@@ -84,18 +76,14 @@ int32_t libmpq__decompress_huffman(uint8_t *in_buf, uint32_t in_size, uint8_t *o
 	libmpq__huffman_tree_init(ht, LIBMPQ_HUFF_DECOMPRESS);
 
 	/* save the number of copied bytes. */
-	tb = libmpq__do_decompress_huffman(ht, is, out_buf, out_size);
-
-	/* free structures. */
-	free(is);
-	free(ht);
+	tb = libmpq__do_decompress_huffman(ht, &is, out_buf, out_size);
 
 	/* return transferred bytes. */
 	return tb;
 }
 
 /* this function decompress a stream using zlib algorithm. */
-int32_t libmpq__decompress_zlib(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_zlib(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t result = 0;
@@ -141,19 +129,11 @@ int32_t libmpq__decompress_zlib(uint8_t *in_buf, uint32_t in_size, uint8_t *out_
 }
 
 /* this function decompress a stream using pkzip algorithm. */
-int32_t libmpq__decompress_pkzip(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_pkzip(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t tb = 0;
-	uint8_t *work_buf;
 	pkzip_data_s info;
-
-	/* allocate memory for pkzip data structure. */
-	if ((work_buf = malloc(sizeof(pkzip_cmp_s))) == NULL) {
-
-		/* memory allocation problem. */
-		return LIBMPQ_ERROR_MALLOC;
-	}
 
 	/* cleanup. */
 	memset(work_buf, 0, sizeof(pkzip_cmp_s));
@@ -179,15 +159,12 @@ int32_t libmpq__decompress_pkzip(uint8_t *in_buf, uint32_t in_size, uint8_t *out
 	/* save transferred bytes. */
 	tb = info.out_pos;
 
-	/* free working buffer. */
-	free(work_buf);
-
 	/* return transferred bytes. */
 	return tb;
 }
 
 /* this function decompress a stream using bzip2 library. */
-int32_t libmpq__decompress_bzip2(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_bzip2(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t result = 0;
@@ -225,7 +202,7 @@ int32_t libmpq__decompress_bzip2(uint8_t *in_buf, uint32_t in_size, uint8_t *out
 }
 
 /* this function decompress a stream using wave algorithm. (1 channel) */
-int32_t libmpq__decompress_wave_mono(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_wave_mono(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t tb = 0;
@@ -242,7 +219,7 @@ int32_t libmpq__decompress_wave_mono(uint8_t *in_buf, uint32_t in_size, uint8_t 
 }
 
 /* this function decompress a stream using wave algorithm. (2 channels) */
-int32_t libmpq__decompress_wave_stereo(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_wave_stereo(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t tb = 0;
@@ -259,7 +236,7 @@ int32_t libmpq__decompress_wave_stereo(uint8_t *in_buf, uint32_t in_size, uint8_
 }
 
 /* this function decompress a stream using a combination of the other compression algorithm. */
-int32_t libmpq__decompress_multi(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size) {
+int32_t libmpq__decompress_multi(uint8_t *in_buf, uint32_t in_size, uint8_t *decompress_work_buf, uint8_t *out_buf, uint32_t out_size) {
 
 	/* some common variables. */
 	int32_t tb        = 0;
@@ -328,7 +305,7 @@ int32_t libmpq__decompress_multi(uint8_t *in_buf, uint32_t in_size, uint8_t *out
 			}
 
 			/* decompress buffer using corresponding function. */
-			if ((tb = dcmp_table[i].decompress(in_buf, in_size, work_buf, out_size)) < 0) {
+			if ((tb = dcmp_table[i].decompress(in_buf, in_size, decompress_work_buf, work_buf, out_size)) < 0) {
 
 				/* free temporary buffer. */
 				free(temp_buf);

@@ -28,6 +28,7 @@
 /* libmpq generic includes. */
 #include "common.h"
 #include "endian.h"
+#include "extract.h"
 
 /* generic includes. */
 #include <errno.h>
@@ -384,6 +385,7 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 	}
 
 	/* loop through all files in mpq archive and check if they are valid. */
+	uint32_t all_flags = 0;
 	for (i = 0; i < (*mpq_archive)->mpq_header.block_table_count; i++) {
 
 		/* save block difference between valid and invalid blocks. */
@@ -396,11 +398,20 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 			continue;
 		}
 
+		all_flags |= (*mpq_archive)->mpq_block[i].flags;
+
 		/* create final indices tables. */
 		(*mpq_archive)->mpq_map[count].block_table_indices = i;
 
 		/* increase file counter. */
 		count++;
+	}
+
+	if ((all_flags & (LIBMPQ_FLAG_COMPRESS_PKZIP | LIBMPQ_FLAG_COMPRESS_MULTI)) != 0) {
+		if (((*mpq_archive)->decompress_work_buf = malloc(LIBMPQ_DECOMPRESS_WORK_BUF_SIZE)) == NULL) {
+			result = LIBMPQ_ERROR_MALLOC;
+			goto error;
+		}
 	}
 
 	/* save the number of files. */
@@ -418,6 +429,7 @@ error:
 	free((*mpq_archive)->mpq_hash);
 	free((*mpq_archive)->mpq_block);
 	free((*mpq_archive)->mpq_block_ex);
+	free((*mpq_archive)->decompress_work_buf);
 	free(*mpq_archive);
 
 	*mpq_archive = NULL;
@@ -472,6 +484,13 @@ int32_t libmpq__archive_dup(mpq_archive_s *orig_archive, const char *mpq_filenam
 		goto error;
 	}
 
+	if (orig_archive->decompress_work_buf != NULL) {
+		if ((*mpq_archive)->decompress_work_buf = malloc(LIBMPQ_DECOMPRESS_WORK_BUF_SIZE)) {
+			result = LIBMPQ_ERROR_MALLOC;
+			goto error;
+		}
+	}
+
 	memcpy((*mpq_archive)->mpq_block, orig_archive->mpq_block, header->block_table_count * sizeof(mpq_block_s));
 	memcpy((*mpq_archive)->mpq_block_ex, orig_archive->mpq_block_ex, header->block_table_count * sizeof(mpq_block_ex_s));
 	memcpy((*mpq_archive)->mpq_hash, orig_archive->mpq_hash, header->block_table_count * sizeof(mpq_hash_s));
@@ -487,6 +506,7 @@ error:
 	free((*mpq_archive)->mpq_hash);
 	free((*mpq_archive)->mpq_block);
 	free((*mpq_archive)->mpq_block_ex);
+	free((*mpq_archive)->decompress_work_buf);
 	free(*mpq_archive);
 
 	*mpq_archive = NULL;
@@ -512,6 +532,7 @@ int32_t libmpq__archive_close(mpq_archive_s *mpq_archive) {
 	free(mpq_archive->mpq_hash);
 	free(mpq_archive->mpq_block);
 	free(mpq_archive->mpq_block_ex);
+	free(mpq_archive->decompress_work_buf);
 	free(mpq_archive);
 
 	/* if no error was found, return zero. */
@@ -1421,7 +1442,7 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 	if (compressed) {
 
 		/* decompress block. */
-		if ((tb = libmpq__decompress_block(in_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_MULTI)) < 0) {
+		if ((tb = libmpq__decompress_block(in_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_MULTI)) < 0) {
 
 			/* free temporary buffer. */
 			if (!use_in_buf_as_out) free(in_buf);
@@ -1435,7 +1456,7 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 	if (imploded) {
 
 		/* explode block. */
-		if ((tb = libmpq__decompress_block(in_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_PKZIP)) < 0) {
+		if ((tb = libmpq__decompress_block(in_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_PKZIP)) < 0) {
 
 			/* free temporary buffer. */
 			free(in_buf);
@@ -1458,7 +1479,7 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 	if (!compressed && !imploded) {
 
 		/* copy block. */
-		if ((tb = libmpq__decompress_block(in_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_NONE)) < 0) {
+		if ((tb = libmpq__decompress_block(in_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_NONE)) < 0) {
 
 			/* free temporary buffer. */
 			if (!use_in_buf_as_out) free(in_buf);
@@ -1574,7 +1595,7 @@ int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uin
 	if (compressed) {
 
 		/* decompress block. */
-		if ((tb = libmpq__decompress_block(tmp_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_MULTI)) < 0) {
+		if ((tb = libmpq__decompress_block(tmp_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_MULTI)) < 0) {
 
 			/* something on decompressing block failed. */
 			return LIBMPQ_ERROR_UNPACK;
@@ -1588,7 +1609,7 @@ int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uin
 	if (imploded) {
 
 		/* explode block. */
-		if ((tb = libmpq__decompress_block(tmp_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_PKZIP)) < 0) {
+		if ((tb = libmpq__decompress_block(tmp_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_PKZIP)) < 0) {
 
 			/* something on decompressing block failed. */
 			return LIBMPQ_ERROR_UNPACK;
@@ -1606,7 +1627,7 @@ int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uin
 	if (!compressed && !imploded) {
 
 		/* copy block. */
-		if ((tb = libmpq__decompress_block(tmp_buf, in_size, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_NONE)) < 0) {
+		if ((tb = libmpq__decompress_block(tmp_buf, in_size, mpq_archive->decompress_work_buf, out_buf, out_size, LIBMPQ_FLAG_COMPRESS_NONE)) < 0) {
 
 			/* something on decompressing block failed. */
 			return LIBMPQ_ERROR_UNPACK;
