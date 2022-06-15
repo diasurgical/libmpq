@@ -142,6 +142,8 @@ struct mpq_archive {
 	/* non archive structure related members. */
 	mpq_map_s	*mpq_map;		/* map table between valid blocks and hashes. */
 	uint32_t	files;			/* number of files in archive, which could be extracted. */
+
+	uint8_t *decompress_work_buf;
 };
 
 #endif						/* _MPQ_INTERNAL_H */

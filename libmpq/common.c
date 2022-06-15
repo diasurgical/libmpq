@@ -183,7 +183,7 @@ int32_t libmpq__decrypt_key(uint8_t *in_buf, uint32_t in_size, uint32_t block_si
 }
 
 /* function to decompress or explode a block from mpq archive. */
-int32_t libmpq__decompress_block(uint8_t *in_buf, uint32_t in_size, uint8_t *out_buf, uint32_t out_size, uint32_t compression_type) {
+int32_t libmpq__decompress_block(uint8_t *in_buf, uint32_t in_size, uint8_t *work_buf, uint8_t *out_buf, uint32_t out_size, uint32_t compression_type) {
 
 	/* some common variables. */
 	int32_t tb = 0;
@@ -207,9 +207,8 @@ int32_t libmpq__decompress_block(uint8_t *in_buf, uint32_t in_size, uint8_t *out
 
 			/* check if we are using pkzip compression algorithm. */
 			if (compression_type == LIBMPQ_FLAG_COMPRESS_PKZIP) {
-
 				/* decompress using pkzip. */
-				if ((tb = libmpq__decompress_pkzip(in_buf, in_size, out_buf, out_size)) < 0) {
+				if ((tb = libmpq__decompress_pkzip(in_buf, in_size, work_buf, out_buf, out_size)) < 0) {
 
 					/* something on decompression failed. */
 					return tb;
@@ -224,7 +223,7 @@ int32_t libmpq__decompress_block(uint8_t *in_buf, uint32_t in_size, uint8_t *out
 				 *  version 1.0.9 distributed with warcraft 3 passes the full path name of the opened archive
 				 *  as the new last parameter.
 				 */
-				if ((tb = libmpq__decompress_multi(in_buf, in_size, out_buf, out_size)) < 0) {
+				if ((tb = libmpq__decompress_multi(in_buf, in_size, work_buf, out_buf, out_size)) < 0) {
 
 					/* something on decompression failed. */
 					return tb;
