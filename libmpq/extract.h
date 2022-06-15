@@ -21,9 +21,6 @@
 #ifndef _EXTRACT_H
 #define _EXTRACT_H
 
-#include "explode.h"
-#include "huffman.h"
-
 /* define compression types for multilpe compressions. */
 #define LIBMPQ_COMPRESSION_HUFFMAN		0x01		/* huffman compression. (used on wave files only and introduced in starcraft) */
 #define LIBMPQ_COMPRESSION_ZLIB			0x02		/* zlib compression. (introduced in warcraft 3) */
@@ -31,8 +28,6 @@
 #define LIBMPQ_COMPRESSION_BZIP2		0x10		/* bzip compression. (introduced in warcraft 3 - the frozen throne) */
 #define LIBMPQ_COMPRESSION_WAVE_MONO		0x40		/* adpcm 4:1 compression. (introduced in starcraft) */
 #define LIBMPQ_COMPRESSION_WAVE_STEREO		0x80		/* adpcm 4:1 compression. (introduced in starcraft) */
-
-#define LIBMPQ_DECOMPRESS_WORK_BUF_SIZE	(sizeof(pkzip_cmp_s) > sizeof(struct huffman_tree_s) ? sizeof(pkzip_cmp_s) : sizeof(struct huffman_tree_s))
 
 /*
  *  table for decompression functions, return value for all functions
