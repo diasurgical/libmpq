@@ -22,7 +22,6 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 /* libmpq main includes. */
 #include "mpq.h"
