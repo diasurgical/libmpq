@@ -21,7 +21,9 @@
 #ifndef _PLATFORM_H
 #define _PLATFORM_H
 
-#ifdef _MSC_VER
+#if defined(NXDK)
+  #define fseeko fseek
+#elif defined(_MSC_VER)
   #define fseeko _fseeki64
 #endif
 
