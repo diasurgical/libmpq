@@ -39,7 +39,7 @@
 /* support for platform specific things */
 #include "platform.h"
 
-#if defined(_WIN64) || defined(_WIN32)
+#if (defined(_WIN64) || defined(_WIN32)) && !defined(NXDK)
 /* Suppress definitions of `min` and `max` macros by <windows.h>: */
 #define NOMINMAX 1
 #define WIN32_LEAN_AND_MEAN
@@ -82,7 +82,7 @@ const char *libmpq__strerror(int32_t return_code) {
 	return __libmpq_error_strings[-return_code];
 }
 
-#if defined(_WIN64) || defined(_WIN32)
+#if (defined(_WIN64) || defined(_WIN32)) && !defined(NXDK)
 wchar_t *to_wide_char(const char *str) {
 	const size_t size = strlen(str);
 	const uint32_t flags = MB_ERR_INVALID_CHARS;
@@ -103,7 +103,7 @@ wchar_t *to_wide_char(const char *str) {
 #endif
 
 static FILE *fopen_utf8(const char *filename) {
-#if defined(_WIN64) || defined(_WIN32)
+#if (defined(_WIN64) || defined(_WIN32)) && !defined(NXDK)
 	wchar_t *filename_wide = to_wide_char(filename);
 	if (filename_wide == NULL) return NULL;
 	FILE *result = _wfopen(filename_wide, L"rb");
