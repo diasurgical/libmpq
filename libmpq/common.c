@@ -101,9 +101,9 @@ int32_t libmpq__decrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed)
 /* returns the last component of a path after / or \ */
 static const char *get_basename(const char *filename) {
 	const char *basename = strrchr(filename, '\\');
-	if (*basename != '\0') return basename + 1;
+	if (basename != NULL) return basename + 1;
 	basename = strrchr(filename, '/');
-	if (*basename != '\0') return basename + 1;
+	if (basename != NULL) return basename + 1;
 	return filename;
 }
 
