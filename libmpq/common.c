@@ -38,7 +38,7 @@
 #include "crypt_buf.h"
 
 /* function to return the hash to a given string. */
-uint32_t libmpq__hash_string(const char *key, uint32_t offset) {
+uint32_t libmpq__hash_string_s(const char *key, size_t key_length, uint32_t offset) {
 
 	/* some common variables. */
 	uint32_t seed1 = 0x7FED7FED;
@@ -48,13 +48,17 @@ uint32_t libmpq__hash_string(const char *key, uint32_t offset) {
 	uint32_t ch;
 
 	/* prepare seeds. */
-	while (*key != 0) {
+	for (size_t i = 0; i < key_length; ++i) {
 		ch    = toupper(*key++);
 		seed1 = crypt_buf[offset + ch] ^ (seed1 + seed2);
 		seed2 = ch + seed1 + seed2 + (seed2 << 5) + 3;
 	}
 
 	return seed1;
+}
+
+uint32_t libmpq__hash_string(const char *key, uint32_t offset) {
+	return libmpq__hash_string_s(key, strlen(key), offset);
 }
 
 /* function to encrypt a block. */
@@ -98,29 +102,40 @@ int32_t libmpq__decrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed)
 	return LIBMPQ_SUCCESS;
 }
 
-/* returns the last component of a path after / or \ */
-static const char *get_basename(const char *filename) {
-	const char *basename = strrchr(filename, '\\');
-	if (basename != NULL) return basename + 1;
-	basename = strrchr(filename, '/');
-	if (basename != NULL) return basename + 1;
-	return filename;
+/* returns the start index of a path after / or \, or returns 0 */
+static size_t get_basename_pos(const char *filename, size_t filename_length) {
+	size_t pos = filename_length;
+	while (pos-- > 0) {
+		const char c = filename[pos];
+		if (c == '\\' || c == '/') {
+			return pos + 1;
+		}
+	}
+	return 0;
 }
 
-int32_t libmpq__encryption_key_from_filename(const char *filename, uint32_t *key) {
-	const char *basename = get_basename(filename);
-	if (*basename == '\0')
+int32_t libmpq__encryption_key_from_filename_s(const char *filename, size_t filename_length, uint32_t *key) {
+	const size_t basename_pos = get_basename_pos(filename, filename_length);
+	if (basename_pos == filename_length)
 		return LIBMPQ_ERROR_DECRYPT;
-	*key = libmpq__hash_string(basename, 0x300);
+	*key = libmpq__hash_string_s(filename + basename_pos, filename_length - basename_pos, 0x300);
 	return LIBMPQ_SUCCESS;
 }
 
-int32_t libmpq__encryption_key_from_filename_v2(const char *filename, uint32_t offset, uint32_t unpacked_size, uint32_t *key) {
-	int32_t result = libmpq__encryption_key_from_filename(filename, key);
+int32_t libmpq__encryption_key_from_filename(const char *filename, uint32_t *key) {
+	return libmpq__encryption_key_from_filename_s(filename, strlen(filename), key);
+}
+
+int32_t libmpq__encryption_key_from_filename_v2_s(const char *filename, size_t filename_length, uint32_t offset, uint32_t unpacked_size, uint32_t *key) {
+	int32_t result = libmpq__encryption_key_from_filename_s(filename, filename_length, key);
 	if (result < 0)
 		return result;
 	*key = (*key + offset) ^ unpacked_size;
 	return LIBMPQ_SUCCESS;
+}
+
+int32_t libmpq__encryption_key_from_filename_v2(const char *filename, uint32_t offset, uint32_t unpacked_size, uint32_t *key) {
+	return libmpq__encryption_key_from_filename_v2_s(filename, strlen(filename), offset, unpacked_size, key);
 }
 
 /* function to detect decryption key. */

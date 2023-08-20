@@ -16,14 +16,24 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */       
+ */
 
 #ifndef _COMMON_H
 #define _COMMON_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 /* function to return the hash to a given string. */
 uint32_t libmpq__hash_string(
 	const char	*key,
+	uint32_t	offset
+);
+
+/* function to return the hash to a given string view. */
+uint32_t libmpq__hash_string_s(
+	const char	*key,
+	size_t	key_length,
 	uint32_t	offset
 );
 
@@ -55,9 +65,23 @@ int32_t libmpq__encryption_key_from_filename(
 	uint32_t	*key
 );
 
+int32_t libmpq__encryption_key_from_filename_s(
+	const char	*filename,
+	size_t	filename_length,
+	uint32_t	*key
+);
+
 /* function to obtain the decryption key given a filename for files with LIBMPQ_FLAG_ENCRYPTION_KEY_V2. */
 int32_t libmpq__encryption_key_from_filename_v2(
 	const char	*filename,
+	uint32_t	offset,
+	uint32_t	unpacked_size,
+	uint32_t	*key
+);
+
+int32_t libmpq__encryption_key_from_filename_v2_s(
+	const char	*filename,
+	size_t	filename_length,
 	uint32_t	offset,
 	uint32_t	unpacked_size,
 	uint32_t	*key

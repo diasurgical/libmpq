@@ -710,10 +710,14 @@ int32_t libmpq__file_imploded(mpq_archive_s *mpq_archive, uint32_t file_number, 
 }
 
 /* calculates the filename hash. */
+void libmpq__file_hash_s(const char *filename, size_t filename_length, uint32_t *hash1, uint32_t *hash2, uint32_t *hash3) {
+	*hash1 = libmpq__hash_string_s(filename, filename_length, 0x0);
+	*hash2 = libmpq__hash_string_s(filename, filename_length, 0x100);
+	*hash3 = libmpq__hash_string_s(filename, filename_length, 0x200);
+}
+
 void libmpq__file_hash(const char *filename, uint32_t *hash1, uint32_t *hash2, uint32_t *hash3) {
-	*hash1 = libmpq__hash_string(filename, 0x0);
-	*hash2 = libmpq__hash_string(filename, 0x100);
-	*hash3 = libmpq__hash_string(filename, 0x200);
+	libmpq__file_hash_s(filename, strlen(filename), hash1, hash2, hash3);
 }
 
 /* finds the file number with the given filename hash. */
@@ -755,10 +759,14 @@ int32_t libmpq__file_number_from_hash(mpq_archive_s *mpq_archive, uint32_t hash1
 
 
 /* this function return filenumber by the given name. */
-int32_t libmpq__file_number(mpq_archive_s *mpq_archive, const char *filename, uint32_t *number) {
+int32_t libmpq__file_number_s(mpq_archive_s *mpq_archive, const char *filename, size_t filename_length, uint32_t *number) {
 	uint32_t hash1, hash2, hash3;
-	libmpq__file_hash(filename, &hash1, &hash2, &hash3);
+	libmpq__file_hash_s(filename, filename_length, &hash1, &hash2, &hash3);
 	return libmpq__file_number_from_hash(mpq_archive, hash1, hash2, hash3, number);
+}
+
+int32_t libmpq__file_number(mpq_archive_s *mpq_archive, const char *filename, uint32_t *number) {
+	return libmpq__file_number_s(mpq_archive, filename, strlen(filename), number);
 }
 
 /* this function read the given file from archive into a buffer. */
@@ -775,19 +783,19 @@ int32_t libmpq__file_read(mpq_archive_s *mpq_archive, uint32_t file_number, uint
 	}
 
 	uint8_t *tmp_buf = calloc(unpacked_size, sizeof(uint8_t));
-	
+
 	result = libmpq__file_read_with_temporary_buffer(mpq_archive, file_number, out_buf, out_size, tmp_buf, unpacked_size, transferred);
-	
+
 	free(tmp_buf);
 	libmpq__block_close_offset(mpq_archive, file_number);
 
 	return result;
 }
 
-int32_t libmpq__file_read_with_filename(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, uint8_t *out_buf, libmpq__off_t out_size, libmpq__off_t *transferred) {
+int32_t libmpq__file_read_with_filename_s(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, size_t filename_length, uint8_t *out_buf, libmpq__off_t out_size, libmpq__off_t *transferred) {
 	int32_t result = 0;
 
-	if ((result = libmpq__block_open_offset_with_filename(mpq_archive, file_number, filename)) < 0) {
+	if ((result = libmpq__block_open_offset_with_filename_s(mpq_archive, file_number, filename, filename_length)) < 0) {
 		return result;
 	}
 
@@ -797,13 +805,17 @@ int32_t libmpq__file_read_with_filename(mpq_archive_s *mpq_archive, uint32_t fil
 	}
 
 	uint8_t *tmp_buf = calloc(unpacked_size, sizeof(uint8_t));
-	
+
 	result = libmpq__file_read_with_temporary_buffer(mpq_archive, file_number, out_buf, out_size, tmp_buf, unpacked_size, transferred);
-	
+
 	free(tmp_buf);
 	libmpq__block_close_offset(mpq_archive, file_number);
 
 	return result;
+}
+
+int32_t libmpq__file_read_with_filename(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, uint8_t *out_buf, libmpq__off_t out_size, libmpq__off_t *transferred) {
+	return libmpq__file_read_with_filename_s(mpq_archive, file_number, filename, strlen(filename), out_buf, out_size, transferred);
 }
 
 /* this function read the given file from archive into a buffer using a user-provided temporary buffer. */
@@ -881,10 +893,10 @@ int32_t libmpq__file_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uint
 }
 
 /* this function read the given file from archive into a buffer. calculates the filename-based decryption key if needed. */
-int32_t libmpq__file_read_with_filename_and_temporary_buffer(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, uint8_t *out_buf, libmpq__off_t out_size, uint8_t *tmp_buf, libmpq__off_t tmp_size, libmpq__off_t *transferred) {
+int32_t libmpq__file_read_with_filename_and_temporary_buffer_s(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, size_t filename_length, uint8_t *out_buf, libmpq__off_t out_size, uint8_t *tmp_buf, libmpq__off_t tmp_size, libmpq__off_t *transferred) {
 	int32_t result = 0;
 
-	if ((result = libmpq__block_open_offset_with_filename(mpq_archive, file_number, filename)) < 0) {
+	if ((result = libmpq__block_open_offset_with_filename_s(mpq_archive, file_number, filename, filename_length)) < 0) {
 		return result;
 	}
 
@@ -895,8 +907,12 @@ int32_t libmpq__file_read_with_filename_and_temporary_buffer(mpq_archive_s *mpq_
 	return result;
 }
 
+int32_t libmpq__file_read_with_filename_and_temporary_buffer(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, uint8_t *out_buf, libmpq__off_t out_size, uint8_t *tmp_buf, libmpq__off_t tmp_size, libmpq__off_t *transferred) {
+	return libmpq__file_read_with_filename_and_temporary_buffer_s(mpq_archive, file_number, filename, strlen(filename), out_buf, out_size, tmp_buf, tmp_size, transferred);
+}
+
 /* opens a file and calculates the filename-based decryption key if needed. */
-int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename) {
+int32_t libmpq__block_open_offset_with_filename_s(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename, size_t filename_length) {
 
 	/* some common variables. */
 	uint32_t i;
@@ -988,9 +1004,9 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 			/* get the file seed. */
 			uint32_t seed;
 			if (mpq_block->flags & LIBMPQ_FLAG_ENCRYPTION_KEY_V2) {
-				result = libmpq__encryption_key_from_filename_v2(filename, mpq_block->offset, mpq_block->unpacked_size, &seed);
+				result = libmpq__encryption_key_from_filename_v2_s(filename, filename_length, mpq_block->offset, mpq_block->unpacked_size, &seed);
 			} else {
-				result = libmpq__encryption_key_from_filename(filename, &seed);
+				result = libmpq__encryption_key_from_filename_s(filename, filename_length, &seed);
 			}
 			if (result < 0) {
 				result = LIBMPQ_ERROR_DECRYPT;
@@ -1054,9 +1070,9 @@ int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint
 			/* get the file seed. */
 			uint32_t seed;
 			if (mpq_block->flags & LIBMPQ_FLAG_ENCRYPTION_KEY_V2) {
-				result = libmpq__encryption_key_from_filename_v2(filename, mpq_block->offset, mpq_block->unpacked_size, &seed);
+				result = libmpq__encryption_key_from_filename_v2_s(filename, filename_length, mpq_block->offset, mpq_block->unpacked_size, &seed);
 			} else {
-				result = libmpq__encryption_key_from_filename(filename, &seed);
+				result = libmpq__encryption_key_from_filename_s(filename, filename_length, &seed);
 			}
 			if (result < 0) {
 				result = LIBMPQ_ERROR_DECRYPT;
@@ -1077,6 +1093,10 @@ error:
 
 	/* return error constant. */
 	return result;
+}
+
+int32_t libmpq__block_open_offset_with_filename(mpq_archive_s *mpq_archive, uint32_t file_number, const char *filename) {
+	return libmpq__block_open_offset_with_filename_s(mpq_archive, file_number, filename, strlen(filename));
 }
 
 /* this function open a file in the given archive and caches the block offset information. */
