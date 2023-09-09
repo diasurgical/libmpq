@@ -29,6 +29,7 @@
 
 /* libmpq generic includes. */
 #include "extract.h"
+#include "endian.h"
 
 #include "common.h"
 
@@ -74,7 +75,7 @@ int32_t libmpq__encrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed)
 		ch        = *in_buf ^ (seed + seed2);
 		seed      = ((~seed << 0x15) + 0x11111111) | (seed >> 0x0B);
 		seed2     = *in_buf + seed2 + (seed2 << 5) + 3;
-		*in_buf++ = ch;
+		*in_buf++ = libmpq__bswap_LE32(ch);
 	}
 
 	/* if no error was found, return decrypted bytes. */
@@ -92,7 +93,7 @@ int32_t libmpq__decrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed)
 	/* we're processing the data 4 bytes at a time. */
 	for (; in_size >= 4; in_size -= 4) {
 		seed2    += crypt_buf[0x400 + (seed & 0xFF)];
-		ch        = *in_buf ^ (seed + seed2);
+		ch        = libmpq__bswap_LE32(*in_buf) ^ (seed + seed2);
 		seed      = ((~seed << 0x15) + 0x11111111) | (seed >> 0x0B);
 		seed2     = ch + seed2 + (seed2 << 5) + 3;
 		*in_buf++ = ch;

@@ -56,6 +56,12 @@ extern "C" {
 #define LIBMPQ_ERROR_DECRYPT			-11		/* we don't know the decryption seed. */
 #define LIBMPQ_ERROR_UNPACK			-12		/* error on unpacking file. */
 
+/* Precalculated value of libmpq__hash_string("(block table)", 0x300) */
+#define LIBMPQ_BLOCK_TABLE_HASH_KEY 3968054179u
+
+/* Precalculated value of libmpq__hash_string("(hash table)", 0x300) */
+#define LIBMPQ_HASH_TABLE_HASH_KEY 3283040112u
+
 /* internal data structure. */
 typedef struct mpq_archive mpq_archive_s;
 
@@ -106,6 +112,12 @@ extern LIBMPQ_API int32_t libmpq__block_close_offset(mpq_archive_s *mpq_archive,
 extern LIBMPQ_API int32_t libmpq__block_size_unpacked(mpq_archive_s *mpq_archive, uint32_t file_number, uint32_t block_number, libmpq__off_t *unpacked_size);
 extern LIBMPQ_API int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uint32_t block_number, uint8_t *out_buf, libmpq__off_t out_size, libmpq__off_t *transferred);
 extern LIBMPQ_API int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uint32_t file_number, uint32_t block_number, uint8_t *out_buf, libmpq__off_t out_size, uint8_t *tmp_buf, libmpq__off_t tmp_size, libmpq__off_t *transferred);
+
+/* generic mpq functions */
+extern LIBMPQ_API uint32_t libmpq__hash_string(const char *key, uint32_t offset);
+extern LIBMPQ_API uint32_t libmpq__hash_string_s(const char *key, size_t key_length, uint32_t offset);
+extern LIBMPQ_API int32_t libmpq__encrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed);
+extern LIBMPQ_API int32_t libmpq__decrypt_block(uint32_t *in_buf, uint32_t in_size, uint32_t seed);
 
 #ifdef __cplusplus
 }

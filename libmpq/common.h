@@ -24,33 +24,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* function to return the hash to a given string. */
-uint32_t libmpq__hash_string(
-	const char	*key,
-	uint32_t	offset
-);
-
-/* function to return the hash to a given string view. */
-uint32_t libmpq__hash_string_s(
-	const char	*key,
-	size_t	key_length,
-	uint32_t	offset
-);
-
-/* function to encrypt a block. */
-int32_t libmpq__encrypt_block(
-	uint32_t	*in_buf,
-	uint32_t	in_size,
-	uint32_t	seed
-);
-
-/* function to decrypt a block. */
-int32_t libmpq__decrypt_block(
-	uint32_t	*in_buf,
-	uint32_t	in_size,
-	uint32_t	seed
-);
-
 /* function to detect decryption key. */
 int32_t libmpq__decrypt_key(
 	uint8_t		*in_buf,
