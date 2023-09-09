@@ -352,11 +352,8 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 		goto error;
 	}
 
-	/* convert loaded data to platform endian */
-	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s) / sizeof(uint32_t));
-
 	/* decrypt the hashtable. */
-	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s), libmpq__hash_string("(hash table)", 0x300));
+	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s), LIBMPQ_HASH_TABLE_HASH_KEY);
 
 	/* convert decrypted data to original endian */
 	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_hash), (*mpq_archive)->mpq_header.hash_table_count * sizeof(mpq_hash_s) / sizeof(uint32_t));
@@ -380,11 +377,8 @@ int32_t libmpq__archive_open(mpq_archive_s **mpq_archive, const char *mpq_filena
 		goto error;
 	}
 
-	/* convert loaded data to platform endian */
-	bswap_uint32s((uint32_t *)((*mpq_archive)->mpq_block), (*mpq_archive)->mpq_header.block_table_count * sizeof(mpq_block_s) / sizeof(uint32_t));
-
 	/* decrypt block table. */
-	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_block), (*mpq_archive)->mpq_header.block_table_count * sizeof(mpq_block_s), libmpq__hash_string("(block table)", 0x300));
+	libmpq__decrypt_block((uint32_t *)((*mpq_archive)->mpq_block), (*mpq_archive)->mpq_header.block_table_count * sizeof(mpq_block_s), LIBMPQ_BLOCK_TABLE_HASH_KEY);
 
 	/*
 	 * mpq_block_s is a block of uint32_t values, so we can skip convertion to orignal endian, casting and conversion to platform endian.
@@ -1014,9 +1008,6 @@ int32_t libmpq__block_open_offset_with_filename_s(mpq_archive_s *mpq_archive, ui
 			}
 			mpq_archive->mpq_file[file_number]->seed = seed;
 
-			/* convert to platform endian before decryption */
-			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
-
 			/* decrypt block in input buffer. */
 			if (libmpq__decrypt_block(mpq_archive->mpq_file[file_number]->packed_offset, packed_size, seed - 1) < 0 ) {
 
@@ -1197,9 +1188,6 @@ int32_t libmpq__block_open_offset(mpq_archive_s *mpq_archive, uint32_t file_numb
 				goto error;
 			}
 			mpq_archive->mpq_file[file_number]->seed = seed;
-
-			/* convert data to platform endian before decryption */
-			bswap_uint32s(mpq_archive->mpq_file[file_number]->packed_offset, packed_size / sizeof(uint32_t));
 
 			/* decrypt block in input buffer. */
 			if (libmpq__decrypt_block(mpq_archive->mpq_file[file_number]->packed_offset, packed_size, mpq_archive->mpq_file[file_number]->seed - 1) < 0 ) {
@@ -1450,9 +1438,6 @@ int32_t libmpq__block_read(mpq_archive_s *mpq_archive, uint32_t file_number, uin
 		/* get decryption key. */
 		libmpq__block_seed(mpq_archive, file_number, block_number, &seed);
 
-		/* convert data to platform endian before decryption */
-		bswap_uint32s((uint32_t *)in_buf, in_size / sizeof(uint32_t));
-
 		/* decrypt block. */
 		if (libmpq__decrypt_block((uint32_t *)in_buf, in_size, seed) < 0) {
 
@@ -1608,9 +1593,6 @@ int32_t libmpq__block_read_with_temporary_buffer(mpq_archive_s *mpq_archive, uin
 
 		/* get decryption key. */
 		libmpq__block_seed(mpq_archive, file_number, block_number, &seed);
-
-		/* convert data to platform endian before decryption */
-		bswap_uint32s((uint32_t *)tmp_buf, in_size / sizeof(uint32_t));
 
 		/* decrypt block. */
 		if (libmpq__decrypt_block((uint32_t *)tmp_buf, in_size, seed) < 0) {
