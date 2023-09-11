@@ -19,7 +19,6 @@
  */
 
 /* generic includes. */
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -38,6 +37,10 @@
  */
 #include "crypt_buf.h"
 
+static unsigned char ascii_toupper(unsigned char c) {
+	return (c >= 'a' && c <= 'z') ? c - ('a' - 'A') : c;
+}
+
 /* function to return the hash to a given string. */
 uint32_t libmpq__hash_string_s(const char *key, size_t key_length, uint32_t offset) {
 
@@ -50,7 +53,7 @@ uint32_t libmpq__hash_string_s(const char *key, size_t key_length, uint32_t offs
 
 	/* prepare seeds. */
 	for (size_t i = 0; i < key_length; ++i) {
-		ch    = toupper(*key++);
+		ch    = ascii_toupper(*key++);
 		seed1 = crypt_buf[offset + ch] ^ (seed1 + seed2);
 		seed2 = ch + seed1 + seed2 + (seed2 << 5) + 3;
 	}
