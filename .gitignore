@@ -22,3 +22,7 @@ Makefile.in
 /missing
 /py-compile
 /stamp-h1
+/confdefs.h
+/configure~
+/config.h.in~
+/configure.ac~
